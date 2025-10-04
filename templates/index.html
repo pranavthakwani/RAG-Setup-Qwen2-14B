@@ -167,6 +167,11 @@
             color: white;
         }
 
+        .bot-avatar {
+            background: linear-gradient(135deg, #5a67d8 0%, #9f7aea 100%);
+            color: white;
+        }
+
         .message-content {
             line-height: 1.6;
             color: var(--text-primary);
@@ -217,47 +222,17 @@
             display: inline-block;
         }
 
-        /* Animations */
-        @keyframes slideInFromRight {
-            0% {
-                opacity: 0;
-                transform: translateX(50px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes slideInFromLeft {
-            0% {
-                opacity: 0;
-                transform: translateX(-50px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        /* Typing indicator */
+        /* Typing indicator inside message bubble */
         .typing-indicator {
-            display: none;
-            justify-content: flex-start;
-            padding: 0 20px;
-            margin-bottom: 16px;
-        }
-
-        .typing-dots {
             display: flex;
-            gap: 4px;
-            margin-top: 8px;
             align-items: center;
+            gap: 8px;
+            padding: 4px 0;
         }
 
         .typing-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background-color: var(--text-secondary);
             animation: typingPulse 1.5s infinite ease-in-out;
@@ -279,6 +254,29 @@
             30% {
                 transform: scale(1.2);
                 opacity: 1;
+            }
+        }
+
+        /* Animations */
+        @keyframes slideInFromRight {
+            0% {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInFromLeft {
+            0% {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
             }
         }
 
@@ -403,12 +401,25 @@
             background-color: #c53030;
         }
 
-        .stop-button.inactive {
+        .clear-button {
             display: flex;
-            opacity: 0.3;
-            cursor: not-allowed;
-            background-color: var(--bg-tertiary);
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .clear-button:hover {
+            background-color: var(--error-color);
+            color: white;
+            border-color: var(--error-color);
         }
 
         /* Responsive */
@@ -472,6 +483,12 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
+                <button class="clear-button" id="clearButton" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Clear Chat
+                </button>
             </div>
         </div>
 
@@ -481,19 +498,6 @@
                 <p class="welcome-subtitle">Start a conversation with our AI assistant</p>
             </div>
             <div class="chat-messages" id="chatMessages" style="display: none;">
-            </div>
-
-            <div class="typing-indicator" id="typingIndicator">
-                <div class="bot-message-container">
-                    <div class="message-avatar bot-avatar">KA</div>
-                    <div class="message-content bot-message typing-content">
-                        <div class="typing-dots">
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
-                            <div class="typing-dot"></div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="chat-input-container">
@@ -518,26 +522,33 @@
         const chatInput = document.getElementById('chatInput');
         const sendButton = document.getElementById('sendButton');
         const themeToggle = document.getElementById('themeToggle');
-        const typingIndicator = document.getElementById('typingIndicator');
         const welcomeScreen = document.getElementById('welcomeScreen');
         const stopBtn = document.getElementById('stopBtn');
+        const clearButton = document.getElementById('clearButton');
 
         let currentTheme = 'dark';
         let messageCount = 0;
         let currentReader = null;
         let isGenerating = false;
         let firstMessageSent = false;
+        let typingIndicatorElement = null;
 
         function initApp() {
             sendButton.addEventListener('click', sendMessage);
             chatInput.addEventListener('keydown', handleKeyDown);
             themeToggle.addEventListener('click', toggleTheme);
             stopBtn.addEventListener('click', stopGeneration);
+            clearButton.addEventListener('click', clearConversation);
             chatInput.addEventListener('input', autoResizeTextarea);
 
             // Reset first message flag on page load
             firstMessageSent = false;
             chatInput.classList.remove('glow-disabled');
+
+            // Show clear button after first message
+            if (messageCount > 0) {
+                clearButton.style.display = 'flex';
+            }
         }
 
         function toggleTheme() {
@@ -645,6 +656,38 @@
                 chatInput.classList.add('glow-disabled');
                 firstMessageSent = true;
             }
+
+            // Show clear button after first message
+            clearButton.style.display = 'flex';
+        }
+
+        function showTypingIndicator() {
+            // Create typing indicator as a bot message
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.id = 'typingIndicator';
+            messageDiv.innerHTML = `
+                <div class="bot-message-container">
+                    <div class="message-avatar bot-avatar">KA</div>
+                    <div class="message-content bot-message">
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+            typingIndicatorElement = messageDiv;
+        }
+
+        function hideTypingIndicator() {
+            if (typingIndicatorElement) {
+                typingIndicatorElement.remove();
+                typingIndicatorElement = null;
+            }
         }
 
         function addBotMessage() {
@@ -678,7 +721,7 @@
             if (message && !isGenerating) {
                 isGenerating = true;
                 sendButton.disabled = true;
-                
+
                 addUserMessage(message);
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
@@ -687,8 +730,10 @@
                 stopBtn.classList.remove('inactive');
                 stopBtn.classList.add('active');
 
-                typingIndicator.style.display = 'block';
-                scrollToBottom();
+                // Show typing indicator as a message bubble
+                showTypingIndicator();
+
+                // Uncomment below code for actual API integration
 
                 fetch('/chat', {
                     method: 'POST',
@@ -699,7 +744,8 @@
                     currentReader = response.body.getReader();
                     const decoder = new TextDecoder();
 
-                    typingIndicator.style.display = 'none';
+                    // Hide typing indicator and start showing real response
+                    hideTypingIndicator();
 
                     const contentDiv = addBotMessage();
 
@@ -723,10 +769,9 @@
                             processStream();
                         }).catch(error => {
                             console.error('Stream error:', error);
-                            // Deactivate stop button on error
+                            hideTypingIndicator();
                             stopBtn.classList.remove('active');
                             stopBtn.classList.add('inactive');
-
                             isGenerating = false;
                             sendButton.disabled = false;
                             currentReader = null;
@@ -737,12 +782,9 @@
                 })
                 .catch(error => {
                     console.error('Fetch error:', error);
-                    typingIndicator.style.display = 'none';
-
-                    // Deactivate stop button on error
+                    hideTypingIndicator();
                     stopBtn.classList.remove('active');
                     stopBtn.classList.add('inactive');
-
                     isGenerating = false;
                     sendButton.disabled = false;
 
@@ -756,6 +798,7 @@
                     `;
                     chatMessages.appendChild(errorDiv);
                 });
+
             }
         }
 
@@ -763,15 +806,34 @@
             if (currentReader && isGenerating) {
                 currentReader.cancel();
                 currentReader = null;
-                
-                // Deactivate stop button when manually stopped
-                stopBtn.classList.remove('active');
-                stopBtn.classList.add('inactive');
-
-                isGenerating = false;
-                sendButton.disabled = false;
-                typingIndicator.style.display = 'none';
             }
+            
+            // Hide typing indicator when manually stopped
+            hideTypingIndicator();
+            
+            // Deactivate stop button when manually stopped
+            stopBtn.classList.remove('active');
+            stopBtn.classList.add('inactive');
+            
+            isGenerating = false;
+            sendButton.disabled = false;
+        }
+
+        function clearConversation() {
+            // Clear chat messages
+            chatMessages.innerHTML = '';
+            messageCount = 0;
+
+            // Reset to welcome screen
+            welcomeScreen.style.display = 'flex';
+            chatMessages.style.display = 'none';
+
+            // Reset states
+            firstMessageSent = false;
+            chatInput.classList.remove('glow-disabled');
+
+            // Hide clear button until next message
+            clearButton.style.display = 'none';
         }
 
         window.addEventListener('load', initApp);
